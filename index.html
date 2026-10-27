@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TLC Rf 解析</title>
+  <meta name="description" content="TLCプレートの写真からスポットの重心を求め、Rf値を計算するブラウザアプリ（オフライン対応）。">
+  <meta name="theme-color" content="#1f7a4d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="26" height="26">
+      <span data-i18n="appTitle">TLC Rf 解析</span>
+    </div>
+    <div class="top-actions">
+      <button id="btnUndo" class="icon-btn" data-i18n-title="undo" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      </button>
+      <button id="btnLang" class="chip" data-i18n="langToggle">English</button>
+      <button id="btnHelp" class="icon-btn" data-i18n-title="help">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9"/><circle cx="12" cy="17.2" r=".6" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="steps" id="steps">
+    <button data-step="import"><b>1</b><span data-i18n="stepImport"></span></button>
+    <button data-step="warp"><b>2</b><span data-i18n="stepWarp"></span></button>
+    <button data-step="scale"><b>3</b><span data-i18n="stepScale"></span></button>
+    <button data-step="lines"><b>4</b><span data-i18n="stepLines"></span></button>
+    <button data-step="spots"><b>5</b><span data-i18n="stepSpots"></span></button>
+    <button data-step="results"><b>6</b><span data-i18n="stepResults"></span></button>
+  </nav>
+
+  <main class="workspace">
+    <section class="stage">
+      <canvas id="view"></canvas>
+      <div class="empty" id="emptyState">
+        <div>
+          <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="14" y="5" width="20" height="38" rx="2"/><path d="M14 35h20M14 11h20"/><circle cx="21" cy="24" r="2.6"/><circle cx="27" cy="19" r="2.6"/></svg>
+          <p class="big" data-i18n="emptyTitle"></p>
+          <p data-i18n="emptyDesc"></p>
+          <button class="btn primary" data-file="fileImg" data-i18n="chooseImage"></button>
+        </div>
+      </div>
+      <div class="stage-tools">
+        <button class="icon-btn glass" id="zoomIn" data-i18n-title="zoomIn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="icon-btn glass" id="zoomOut" data-i18n-title="zoomOut"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+        <button class="icon-btn glass" id="zoomFit" data-i18n-title="fit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+      <div class="stage-hint" id="hint" hidden></div>
+      <div class="drop-veil"><span data-i18n="dropHere"></span></div>
+    </section>
+
+    <aside class="panel" id="panel">
+      <div class="pane-scroll">
+        <div class="pane" data-pane="import">
+          <h2 data-i18n="importTitle"></h2>
+          <p class="desc" data-i18n="importDesc"></p>
+          <div class="btn-col">
+            <button class="btn primary" data-file="fileImg" data-i18n="chooseImage"></button>
+            <button class="btn" data-file="fileCam" data-i18n="takePhoto"></button>
+            <button class="btn" data-file="fileSession" data-i18n="openSession"></button>
+          </div>
+          <p class="info" id="importInfo"></p>
+          <p class="note" data-i18n="privacyNote"></p>
+        </div>
+
+        <div class="pane" data-pane="warp" hidden>
+          <h2 data-i18n="warpTitle"></h2>
+          <p class="desc" data-i18n="warpDesc"></p>
+          <div class="btn-row">
+            <button class="btn" id="btnAutoQuad" data-i18n="autoDetect"></button>
+            <button class="btn" id="btnRotate" data-i18n="rotate90"></button>
+            <button class="btn" id="btnFullQuad" data-i18n="resetQuad"></button>
+          </div>
+          <fieldset class="group">
+            <legend data-i18n="plateSize"></legend>
+            <div class="field-row">
+              <label class="field"><span data-i18n="plateW"></span>
+                <span class="with-unit"><input type="number" id="plateW" min="0" step="0.5" inputmode="decimal"><em>mm</em></span></label>
+              <label class="field"><span data-i18n="plateH"></span>
+                <span class="with-unit"><input type="number" id="plateH" min="0" step="0.5" inputmode="decimal"><em>mm</em></span></label>
+            </div>
+            <p class="note" data-i18n="plateSizeNote"></p>
+          </fieldset>
+          <div class="preview-box">
+            <div class="sub" data-i18n="preview"></div>
+            <canvas id="warpPreview" width="10" height="10"></canvas>
+          </div>
+        </div>
+
+        <div class="pane" data-pane="scale" hidden>
+          <h2 data-i18n="scaleTitle"></h2>
+          <p class="desc" data-i18n="scaleDesc"></p>
+          <div class="radio-col">
+            <label><input type="radio" name="scaleMode" value="none"><span data-i18n="scaleNone"></span></label>
+            <label><input type="radio" name="scaleMode" value="line"><span data-i18n="scaleLine"></span></label>
+            <label><input type="radio" name="scaleMode" value="plate"><span data-i18n="scalePlate"></span></label>
+          </div>
+          <div id="scaleLineBox" class="field-row" hidden>
+            <label class="field"><span data-i18n="scaleLength"></span>
+              <span class="with-unit"><input type="number" id="scaleMM" min="0" step="0.1" inputmode="decimal"><em>mm</em></span></label>
+          </div>
+          <p class="info" id="scaleInfo"></p>
+        </div>
+
+        <div class="pane" data-pane="lines" hidden>
+          <h2 data-i18n="linesTitle"></h2>
+          <p class="desc" data-i18n="linesDesc"></p>
+          <div class="btn-row"><button class="btn" id="btnAutoLines" data-i18n="autoDetect"></button></div>
+          <ul class="legend">
+            <li><i style="background:#ff8f00"></i><span data-i18n="originLine"></span></li>
+            <li><i style="background:#2196f3"></i><span data-i18n="frontLine"></span></li>
+          </ul>
+          <p class="info" id="linesInfo"></p>
+        </div>
+
+        <div class="pane" data-pane="spots" hidden>
+          <h2 data-i18n="spotsTitle"></h2>
+          <p class="desc" data-i18n="spotsDesc"></p>
+          <div class="seg" id="tools" role="toolbar">
+            <button data-tool="add" data-i18n="toolAdd"></button>
+            <button data-tool="select" data-i18n="toolSelect"></button>
+            <button data-tool="lane" data-i18n="toolLane"></button>
+            <button data-tool="measure" data-i18n="toolMeasure"></button>
+            <button data-tool="pan" data-i18n="toolPan"></button>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="btnAutoLanes" data-i18n="detectLanes"></button>
+            <button class="btn primary" id="btnAutoSpots" data-i18n="detectSpots"></button>
+            <button class="btn danger-ghost" id="btnClearSpots" data-i18n="clearSpots"></button>
+          </div>
+          <div class="sel-box" id="selBox" hidden></div>
+
+          <div class="group">
+            <div class="sub" data-i18n="lanes"></div>
+            <ul class="lane-list" id="laneList"></ul>
+          </div>
+
+          <details class="group params" open>
+            <summary data-i18n="params"></summary>
+            <label class="field"><span data-i18n="signalMode"></span>
+              <select id="sigMode">
+                <option value="delta" data-i18n="sigDelta"></option>
+                <option value="dark" data-i18n="sigDark"></option>
+                <option value="hue" data-i18n="sigHue"></option>
+              </select>
+            </label>
+            <div class="field ref-row">
+              <span data-i18n="refColor"></span>
+              <span class="swatch empty" id="refSwatch"></span>
+              <button class="btn small" id="btnPickRef" data-i18n="pickRef"></button>
+            </div>
+            <label class="field"><span class="lbl"><span data-i18n="thr"></span><output id="thrOut"></output></span>
+              <input type="range" id="thr" min="0.1" max="0.9" step="0.05"></label>
+            <div class="field"><span data-i18n="centroid"></span>
+              <div class="seg small" id="centroidSeg">
+                <button data-c="w" data-i18n="cWeighted"></button>
+                <button data-c="g" data-i18n="cGeom"></button>
+              </div>
+            </div>
+            <label class="check"><input type="checkbox" id="inLane"><span data-i18n="inLane"></span></label>
+            <div class="field"><span class="lbl"><span data-i18n="laneWidth"></span><output id="laneWOut"></output></span>
+              <div class="inline">
+                <label class="check"><input type="checkbox" id="laneWAuto"><span data-i18n="auto"></span></label>
+                <input type="range" id="laneW" min="4" max="200" step="1">
+              </div>
+            </div>
+            <label class="field"><span class="lbl"><span data-i18n="sens"></span><output id="sensOut"></output></span>
+              <input type="range" id="sens" min="1" max="10" step="1"></label>
+            <label class="field inline-field"><span data-i18n="minArea"></span><input type="number" id="minArea" min="1" step="1" inputmode="numeric"></label>
+            <label class="check"><input type="checkbox" id="exclOrigin"><span data-i18n="exclOrigin"></span></label>
+            <label class="check"><input type="checkbox" id="showMap"><span data-i18n="showMap"></span></label>
+          </details>
+        </div>
+
+        <div class="pane" data-pane="results" hidden>
+          <h2 data-i18n="resultsTitle"></h2>
+          <label class="field"><span data-i18n="sample"></span><input type="text" id="sampleName" autocomplete="off"></label>
+          <div class="table-wrap"><table class="res" id="resTable"></table></div>
+          <p class="info" id="resInfo"></p>
+          <div class="group" id="manualBox" hidden>
+            <div class="sub" data-i18n="manualTitle"></div>
+            <p class="note" data-i18n="manualDesc"></p>
+            <div class="table-wrap"><table class="res" id="manTable"></table></div>
+          </div>
+          <div class="btn-grid">
+            <button class="btn primary" id="btnCsv" data-i18n="exportCsv"></button>
+            <button class="btn" id="btnPng" data-i18n="exportPng"></button>
+            <button class="btn" id="btnCopy" data-i18n="copyTable"></button>
+            <button class="btn" id="btnSave" data-i18n="saveSession"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-nav">
+        <button class="btn" id="btnPrev" data-i18n="prev"></button>
+        <button class="btn primary" id="btnNext" data-i18n="next"></button>
+      </div>
+    </aside>
+  </main>
+
+  <input type="file" id="fileImg" accept="image/*" hidden>
+  <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
+  <input type="file" id="fileSession" accept=".json,application/json" hidden>
+
+  <dialog id="helpDlg" class="dlg">
+    <h2 data-i18n="helpTitle"></h2>
+    <div class="dlg-body" data-i18n-html="helpBody"></div>
+    <div class="dlg-foot"><button class="btn primary" id="btnHelpClose" data-i18n="close"></button></div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
